@@ -41,7 +41,8 @@ public class DynamicSchedulingConfig implements SchedulingConfigurer {
 			String token = iamTokenService.refreshIamToken();
 			if (token != null) {
 				log.info("New Token: " + token);
-                int expiresIn = iamTokenService.getTokenExpiry();
+//                int expiresIn = iamTokenService.getTokenExpiry();
+                int expiresIn = 10;
 				long delay = expiresIn * 1000L - 120 * 1000L; // 2 minutes before expiry
 				rescheduleTask(delay);
 			}

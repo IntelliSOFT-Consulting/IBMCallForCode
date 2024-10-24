@@ -1,5 +1,8 @@
 package com.intellisoft.ibmcallforcode.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.intellisoft.ibmcallforcode.dto.RequestDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +14,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -24,10 +28,15 @@ public class IamTokenService {
 	private static final String GRANT_TYPE = "urn:ibm:params:oauth:grant-type:apikey";
 	
 	private final RestTemplate restTemplate = new RestTemplate();
+	private final ObjectMapper objectMapper;
 	
 	private String accessToken;
 	
 	private int expiresIn;
+	
+	public IamTokenService(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
 	
 	public String refreshIamToken() {
 		try {
@@ -86,4 +95,35 @@ public class IamTokenService {
 		return expiresIn;
 	}
 	
+	public String makeAuthenticatedApiCall(String message) throws JsonProcessingException {
+		String url = "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-10-25";
+		
+		// Bearer token
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("Content-Type", "application/json"); // Set content type to JSON
+		this.createAuthorizedRequest(headers);
+		RequestDto.Message userMessage = new RequestDto.Message("user", message);
+		
+		// request body
+		RequestDto requestDto = new RequestDto(
+				"meta-llama/llama-3-8b-instruct",
+				"3c0ca48c-a65d-4df9-8318-ee36313f0cd8",
+				List.of(userMessage), // Add the user message to the list
+				100,
+				0,
+				1000
+		);
+		
+		String requestBody = objectMapper.writeValueAsString(requestDto);
+		
+		// API call
+		HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+		
+		if (response.getStatusCode().is2xxSuccessful()) {
+			return response.getBody(); // Return the response body
+		} else {
+			throw new RuntimeException("API call failed with status: " + response.getStatusCode());
+		}
+	}
 }
